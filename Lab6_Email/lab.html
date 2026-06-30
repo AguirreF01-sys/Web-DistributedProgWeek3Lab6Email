@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lab 6 - PyMail Client-Server</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }
+        h2 { color: #2980b9; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .step { background: #eaf4fb; border: 1px solid #aed6f1; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .objective { background: #eafaf1; border: 1px solid #a9dfbf; padding: 15px; border-radius: 5px; }
+        .note { background: #fef9e7; border: 1px solid #f9e79f; padding: 12px; border-radius: 5px; margin: 10px 0; }
+        .todo { background: #fdf2f8; border: 1px solid #d7bde2; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .diagram { background: #f8f9fa; border: 1px solid #dee2e6; padding: 20px; border-radius: 5px; font-family: monospace; white-space: pre; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+<h1>Lab 6: PyMail — Client-Server Email Simulation</h1>
+
+<div class="objective">
+    <strong>Objective:</strong> Complete a working email system by implementing the send-email
+    feature across <em>both</em> the client and the server.  The client must collect the message
+    and transmit it; the server must receive, validate, and deliver it.
+</div>
+
+<h2>Background</h2>
+<p>
+    Lab 5 showed a server that executes a single function and disconnects. Real servers maintain
+    a <strong>session</strong> — a continuous back-and-forth with a logged-in user.
+    This lab adds two important ideas:
+</p>
+<ul>
+    <li><strong>Sessions:</strong> the server loops, serving menu requests until the user quits.</li>
+    <li><strong>Threading:</strong> <code>ThreadingTCPServer</code> handles multiple clients at the
+        same time, so John and Beth can both be logged in simultaneously.</li>
+</ul>
+
+<h2>How the Protocol Works</h2>
+<p>
+    The server and client use two special sentinel lines to coordinate who acts next.
+</p>
+<table border="1" cellpadding="8" cellspacing="0">
+    <tr><th>Sentinel</th><th>Sent by</th><th>Meaning</th></tr>
+    <tr>
+        <td><code>__READY__</code></td>
+        <td>Server</td>
+        <td>Send me one line of keyboard input</td>
+    </tr>
+    <tr>
+        <td><code>__COMPOSE__</code></td>
+        <td>Server</td>
+        <td>Collect a full email (To / Subject / Body) and send all three lines</td>
+    </tr>
+</table>
+<p>
+    The client's main loop watches for these sentinels and reacts accordingly:
+</p>
+<pre>if text == "__READY__":
+    user_input = input()              # one line back to the server
+    wfile.write(...)
+elif text == "__COMPOSE__":
+    compose_email(wfile)              # your TODO: collect and send the email
+else:
+    print(text)                       # normal output — just display it</pre>
+
+<h2>Send-Email Conversation Flow</h2>
+
+<div class="diagram">
+Client (john@email.com)              Server
+────────────────────────────────────────────────────────────
+[connects]                  ──────>  [accepts, spawns thread]
+                            <──────  "Email address:"
+                            <──────  __READY__
+"john@email.com"            ──────>
+                            <──────  "Welcome, john@email.com!"
+                            <──────  menu
+                            <──────  __READY__
+"2"  (Send Email)           ──────>
+                            <──────  __COMPOSE__
+[compose_email() runs]
+"beth@email.com"            ──────>  (recipient)
+"Lunch tomorrow?"           ──────>  (subject)
+"Are you free at noon?"     ──────>  (body)
+                            <──────  "Delivered to beth@email.com!"
+                            <──────  menu
+                            <──────  __READY__
+"3"  (Quit)                 ──────>
+                            <──────  "Goodbye!"
+[disconnects]
+</div>
+
+<p>
+    Notice that when <code>__COMPOSE__</code> arrives, the client takes over —
+    it collects all three fields locally and sends them without any further prompts
+    from the server.  The server simply waits for those three lines to arrive.
+</p>
+
+<h2>Step-by-Step Instructions</h2>
+
+<div class="step">
+    <strong>Step 1 — Run the starter code</strong><br>
+    Open two terminals.
+    <pre># Terminal 1
+python server.py
+
+# Terminal 2
+python client.py</pre>
+    Log in as <code>john@email.com</code> and try option 1 (View Inbox) — it works already.
+    Try option 2 — you'll see the placeholder messages from both the client and server
+    that you need to replace.
+</div>
+
+<div class="step">
+    <strong>Step 2 — Read the two TODO functions before writing anything</strong><br>
+    Open both files and read the full comment block in each TODO.  Make sure you understand
+    what each side is responsible for before touching any code.
+    <ul>
+        <li><code>client.py</code> → <code>compose_email(wfile)</code></li>
+        <li><code>server.py</code> → <code>send_email(self, sender)</code></li>
+    </ul>
+</div>
+
+<div class="todo">
+    <strong>TODO 1 — <code>compose_email(wfile)</code> in client.py</strong><br><br>
+    This function runs on the <em>client</em> when the server sends <code>__COMPOSE__</code>.
+    It is responsible for collecting the email from the user and transmitting it.<br><br>
+
+    The server will be waiting for exactly three lines in this order:
+    <ol>
+        <li>Recipient email address</li>
+        <li>Subject line</li>
+        <li>Message body</li>
+    </ol>
+
+    Implementation:
+    <pre>recipient = input("To: ")
+subject   = input("Subject: ")
+body      = input("Body: ")
+wfile.write((recipient + "\n").encode())
+wfile.write((subject   + "\n").encode())
+wfile.write((body      + "\n").encode())
+wfile.flush()</pre>
+
+    Remove the entire placeholder block (the <code>print("[TODO]...")</code> and the loop
+    that sends blank lines) and replace it with the code above.
+</div>
+
+<div class="todo">
+    <strong>TODO 2 — <code>send_email(self, sender)</code> in server.py</strong><br><br>
+    This method runs on the <em>server</em> when a logged-in user picks option 2.
+    It is responsible for receiving the composed email and storing it.<br><br>
+
+    Steps:
+    <ol>
+        <li>
+            Send <code>COMPOSE</code> to trigger <code>compose_email()</code> on the client:
+            <pre>self.write(COMPOSE)</pre>
+        </li>
+        <li>
+            Read the three lines the client sends:
+            <pre>recipient = self.rfile.readline().decode().strip()
+subject   = self.rfile.readline().decode().strip()
+body      = self.rfile.readline().decode().strip()</pre>
+        </li>
+        <li>
+            Validate the recipient. If they are not in <code>VALID_USERS</code>, tell the
+            sender and return:
+            <pre>if recipient not in VALID_USERS:
+    self.write(f"Unknown user: {recipient}")
+    return</pre>
+        </li>
+        <li>
+            Build the message dictionary:
+            <pre>message = {
+    "from":    sender,
+    "date":    str(date.today()),
+    "subject": subject,
+    "body":    body,
+}</pre>
+        </li>
+        <li>
+            Append it to the recipient's inbox, protected by the lock:
+            <pre>with store_lock:
+    message_store[recipient].append(message)</pre>
+        </li>
+        <li>
+            Confirm to the sender:
+            <pre>self.write(f"Delivered to {recipient}!")</pre>
+        </li>
+    </ol>
+    Replace the entire placeholder block (the <code>self.write(COMPOSE)</code>,
+    three discarded <code>readline()</code> calls, and the "not implemented" message)
+    with your real implementation.
+</div>
+
+<div class="step">
+    <strong>Step 3 — Test your implementation</strong><br>
+    <ol>
+        <li>Restart the server.</li>
+        <li>Connect as <code>john@email.com</code> and send a message to <code>beth@email.com</code>.</li>
+        <li>Open a third terminal, connect as <code>beth@email.com</code>, and view her inbox —
+            John's new message should appear.</li>
+        <li>Try sending to <code>nobody@email.com</code> — confirm the server rejects it.</li>
+    </ol>
+</div>
+
+<div class="step">
+    <strong>Step 4 — Two clients at once</strong><br>
+    Because the server uses <code>ThreadingTCPServer</code>, both clients can be connected
+    simultaneously. While Beth is already logged in, have John send her another message.
+    Switch back to Beth and view her inbox — the new message is there instantly.
+    This is thread-safety in action: <code>store_lock</code> ensures the two threads
+    cannot corrupt <code>message_store</code> at the same time.
+</div>
+
+<h2>Key Concepts</h2>
+
+<table border="1" cellpadding="8" cellspacing="0">
+    <tr><th>Concept</th><th>Where you see it</th></tr>
+    <tr>
+        <td>Session loop</td>
+        <td><code>handle()</code> — loops on the menu until the user quits</td>
+    </tr>
+    <tr>
+        <td>Threading</td>
+        <td><code>ThreadingTCPServer</code> — each client gets its own thread</td>
+    </tr>
+    <tr>
+        <td>Shared state</td>
+        <td><code>message_store</code> — all threads read and write this dict</td>
+    </tr>
+    <tr>
+        <td>Thread safety</td>
+        <td><code>store_lock</code> — a <code>threading.Lock</code> that prevents races</td>
+    </tr>
+    <tr>
+        <td>Protocol sentinels</td>
+        <td><code>__READY__</code> and <code>__COMPOSE__</code> — coordinate client/server turns</td>
+    </tr>
+    <tr>
+        <td>Client responsibility</td>
+        <td><code>compose_email()</code> — the client owns its own UI for composing</td>
+    </tr>
+    <tr>
+        <td>Server responsibility</td>
+        <td><code>send_email()</code> — the server owns validation and storage</td>
+    </tr>
+</table>
+
+<h2>Deliverables</h2>
+<ul>
+    <li>Implement <code>compose_email()</code> in <code>client.py</code></li>
+    <li>Implement <code>send_email()</code> in <code>server.py</code></li>
+    <li>Demonstrate John sending an email to Beth</li>
+    <li>Demonstrate Beth seeing John's message in her inbox</li>
+    <li>Demonstrate the invalid-recipient error</li>
+    <li><strong>Bonus:</strong> connect both users simultaneously and show live delivery</li>
+</ul>
+
+<div class="note">
+    <strong>Note:</strong> The message store lives only in memory. Each time you restart the
+    server, the inboxes reset to the pre-seeded messages. A real mail server would persist
+    messages to a database or file system.
+</div>
+
+</body>
+</html>
