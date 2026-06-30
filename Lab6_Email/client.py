@@ -45,11 +45,13 @@ def compose_email(wfile):
            wfile.flush()                                                 #
     ------------------------------------------------------------------ #
     """
-    # Placeholder — sends blank lines so the server does not hang.
-    # Replace this entire block once you start implementing.
-    print("[TODO] compose_email() is not implemented yet.")
-    for _ in range(3):
-        wfile.write(b"\n")
+    recipient = input("To: ")
+    subject = input("Subject: ")
+    body = input("Body: ")
+
+    wfile.write((recipient + "\n").encode())
+    wfile.write((subject + "\n").encode())
+    wfile.write((body + "\n").encode())
     wfile.flush()
 
 

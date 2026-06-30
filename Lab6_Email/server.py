@@ -162,13 +162,27 @@ class MailHandler(socketserver.StreamRequestHandler):
         #   6. Confirm to the sender that the message was delivered.          #
         # ------------------------------------------------------------------ #
 
-        # Placeholder so the client does not hang before this is implemented.
-        # Once you start implementing, replace everything below.
         self.write(COMPOSE)
-        self.rfile.readline()   # recipient  (discard for now)
-        self.rfile.readline()   # subject    (discard for now)
-        self.rfile.readline()   # body       (discard for now)
-        self.write("send_email() is not implemented yet — that's your lab!")
+
+        recipient = self.rfile.readline().decode().strip()
+        subject = self.rfile.readline().decode().strip()
+        body = self.rfile.readline().decode().strip()
+
+        if recipient not in VALID_USERS:
+            self.write(f"Unknown user: {recipient}")
+            return
+
+        message = {
+            "from": sender,
+            "date": str(date.today()),
+            "subject": subject,
+            "body": body,
+        }
+
+        with store_lock:
+            message_store[recipient].append(message)
+
+        self.write(f"Delivered to {recipient}!")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
